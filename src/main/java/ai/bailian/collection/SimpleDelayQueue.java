@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
  */
 @SuppressWarnings({"unused", "WeakerAccess"})
 public class SimpleDelayQueue<E> {
-    private DelayQueue<SimpleDelayBean<E>> delayQueue = new DelayQueue<>();
+    private final DelayQueue<SimpleDelayBean<E>> delayQueue = new DelayQueue<>();
 
     /**
      * 插入一个元素进入延时队列，并指定过期延时时间
@@ -81,8 +81,8 @@ public class SimpleDelayQueue<E> {
 
 @SuppressWarnings("WeakerAccess")
 class SimpleDelayBean<E> implements Delayed {
-    private long time;
-    private E obj;
+    private final long time;
+    private final E obj;
 
     SimpleDelayBean(E obj, long delayTime, TimeUnit timeUnit) {
         this.obj = obj;

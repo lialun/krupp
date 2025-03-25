@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -13,7 +14,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Objects;
-import java.util.TimeZone;
+
+import static ai.bailian.Krupp.JACKSON_TIME_ZONE;
 
 public class JacksonHelper {
 
@@ -26,7 +28,7 @@ public class JacksonHelper {
         DEFAULT_MAPPER.configure(SerializationFeature.INDENT_OUTPUT, false);
         DEFAULT_MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         DEFAULT_MAPPER.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
-        DEFAULT_MAPPER.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+        DEFAULT_MAPPER.setTimeZone(JACKSON_TIME_ZONE);
         DEFAULT_MAPPER.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         DEFAULT_MAPPER.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
     }
@@ -41,6 +43,13 @@ public class JacksonHelper {
     /**
      * JSON 字符串转为 ObjectNode 对象
      */
+    public static JsonNode parse(String json) throws JsonProcessingException {
+        return parse(json, DEFAULT_MAPPER);
+    }
+
+    /**
+     * JSON 字符串转为 ObjectNode 对象
+     */
     public static ObjectNode parseObject(String json) throws JsonProcessingException {
         return parseObject(json, DEFAULT_MAPPER);
     }
@@ -50,6 +59,13 @@ public class JacksonHelper {
      */
     public static ArrayNode parseArray(String jsonArray) throws JsonProcessingException {
         return parseArray(jsonArray, DEFAULT_MAPPER);
+    }
+
+    /**
+     * JSONArray 字符串转 JsonNode 对象
+     */
+    public static JsonNode parse(String jsonArray, ObjectMapper objectMapper) throws JsonProcessingException {
+        return objectMapper.readValue(jsonArray, JsonNode.class);
     }
 
     /**

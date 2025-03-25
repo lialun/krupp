@@ -12,16 +12,16 @@ public class NotifyUtilsTest extends BaseTest {
 
     @Test
     public void sendSMS() {
-        assertTrue(NotifyUtils.sendSMS("test send SMS", "13682079876"));
+        assertTrue(EmailUtils.sendSMS("test send SMS", "13682079876"));
     }
 
     @Test
     public void sendWeChat() {
-        assertTrue(NotifyUtils.sendWeChat("Junit微信发送测试", "lialun"));
+        assertTrue(EmailUtils.sendWeChat("Junit微信发送测试", "lialun"));
     }
 
     @Test
     public void sendEmail() {
-        assertTrue(NotifyUtils.sendEmail("Junit邮件发送测试-标题", String.join("", Collections.nCopies(1000, "Junit邮件发送测试-文本")), "lialun@bailian.ai"));
+        assertTrue(EmailUtils.sendEmail("Junit邮件发送测试-标题", String.join("", Collections.nCopies(1000, "Junit邮件发送测试-文本")), "lialun@bailian.ai"));
     }
 }

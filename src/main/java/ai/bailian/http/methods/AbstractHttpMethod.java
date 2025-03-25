@@ -180,14 +180,16 @@ public abstract class AbstractHttpMethod<T extends AbstractHttpMethod<T>> extend
         }
         return setEntity(Preconditions.checkNotNull(json).toString());
     }
-
-    public T setJacksonEntity(final ObjectNode json) {
+    /**
+     * 设置请求体
+     * 会自动设置请求头Content-type为{@link HttpConstants#CONTENT_TYPE_APPLICATION_JSON}
+     */
+    public T setJsonEntity(final Object object) {
         if (getEntity().getContentType() == null) {
             getEntity().setContentType(ContentType.create(CONTENT_TYPE_APPLICATION_JSON, getConfig().getQueryCharset()));
         }
-        return setEntity(Preconditions.checkNotNull(json).toString());
+        return setEntity(Preconditions.checkNotNull(object).toString());
     }
-
     /**
      * 增加MultiPart请求体
      */

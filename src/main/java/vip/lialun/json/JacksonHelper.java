@@ -8,14 +8,20 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
+import lombok.NonNull;
+import vip.lialun.json.mask.PhoneMaskingSerializer;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.Objects;
-
-import static vip.lialun.Krupp.JACKSON_TIME_ZONE;
+import java.util.TimeZone;
 
 public class JacksonHelper {
 
@@ -28,9 +34,21 @@ public class JacksonHelper {
         DEFAULT_MAPPER.configure(SerializationFeature.INDENT_OUTPUT, false);
         DEFAULT_MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         DEFAULT_MAPPER.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
-        DEFAULT_MAPPER.setTimeZone(JACKSON_TIME_ZONE);
+        DEFAULT_MAPPER.setTimeZone(TimeZone.getTimeZone("GMT+8"));
         DEFAULT_MAPPER.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         DEFAULT_MAPPER.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
+        DEFAULT_MAPPER.registerModule(new JavaTimeModule());
+
+        // 配置 LocalDateTime 的序列化格式
+        JavaTimeModule javaTimeModule = new JavaTimeModule();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(formatter));
+        DEFAULT_MAPPER.registerModule(javaTimeModule);
+        DEFAULT_MAPPER.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        SimpleModule module = new SimpleModule();
+        module.addSerializer(String.class, new PhoneMaskingSerializer());
+        DEFAULT_MAPPER.registerModule(module);
     }
 
     /**
@@ -38,13 +56,6 @@ public class JacksonHelper {
      */
     public static ObjectMapper getDefaultMapper() {
         return DEFAULT_MAPPER;
-    }
-
-    /**
-     * JSON 字符串转为 ObjectNode 对象
-     */
-    public static JsonNode parse(String json) throws JsonProcessingException {
-        return parse(json, DEFAULT_MAPPER);
     }
 
     /**
@@ -62,13 +73,6 @@ public class JacksonHelper {
     }
 
     /**
-     * JSONArray 字符串转 JsonNode 对象
-     */
-    public static JsonNode parse(String jsonArray, ObjectMapper objectMapper) throws JsonProcessingException {
-        return objectMapper.readValue(jsonArray, JsonNode.class);
-    }
-
-    /**
      * JSON 字符串转为 ObjectNode 对象
      */
     public static ObjectNode parseObject(String json, ObjectMapper objectMapper) throws JsonProcessingException {
@@ -80,6 +84,20 @@ public class JacksonHelper {
      */
     public static ArrayNode parseArray(String jsonArray, ObjectMapper objectMapper) throws JsonProcessingException {
         return objectMapper.readValue(jsonArray, ArrayNode.class);
+    }
+
+    /**
+     * JSON字符串转换为Jackson对象
+     */
+    public static JsonNode parse(@NonNull String string) throws JsonProcessingException {
+        return parse(string, DEFAULT_MAPPER);
+    }
+
+    /**
+     * JSON字符串转换为Jackson对象
+     */
+    public static JsonNode parse(@NonNull String string, @NonNull ObjectMapper objectMapper) throws JsonProcessingException {
+        return objectMapper.readValue(string, JsonNode.class);
     }
 
     /**

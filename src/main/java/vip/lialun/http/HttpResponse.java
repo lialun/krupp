@@ -251,7 +251,7 @@ public class HttpResponse implements Serializable {
         if (Check.isNullOrEmpty(contentType)) {
             return null;
         }
-        String charset = RegexUtils.findFirst("charset=([a-zA-Z0-9\\._:\\+-]+)", contentType);
+        String charset = RegexUtils.extractFirstGroup("charset=([a-zA-Z0-9\\._:\\+-]+)", contentType);
         if (!Check.isNullOrEmpty(charset)) {
             return Charset.forName(charset);
         }

@@ -3,6 +3,7 @@ package vip.lialun.regex;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,12 +31,9 @@ import static vip.lialun.Krupp.REGEX_EXPIRE_IN_MINUTES;
 public class RegexUtils {
 
     /**
-     * Pattern缓存的Holder类，实现懒加载模式
-     * 只有在首次使用缓存时才会进行初始化，节省内存
+     * Pattern缓存，实现懒加载模式
      */
-    private static class PatternCacheHolder {
-        private static final Cache<String, Pattern> INSTANCE = buildCache(REGEX_CACHE_SIZE);
-    }
+    private static volatile Cache<String, Pattern> INSTANCE;
 
     /**
      * 获取正则表达式缓存实例
@@ -43,7 +41,14 @@ public class RegexUtils {
      * @return Pattern缓存实例
      */
     private static Cache<String, Pattern> getPatternCache() {
-        return PatternCacheHolder.INSTANCE;
+        if (INSTANCE == null) {
+            synchronized (RegexUtils.class) {
+                if (INSTANCE == null) {
+                    INSTANCE = buildCache(REGEX_CACHE_SIZE);
+                }
+            }
+        }
+        return INSTANCE;
     }
 
     /**
@@ -114,15 +119,6 @@ public class RegexUtils {
     }
 
     /**
-     * 获取缓存统计信息
-     *
-     * @return 缓存统计信息
-     */
-    public static CacheStats getCacheStats() {
-        return getPatternCache().stats();
-    }
-
-    /**
      * 清除正则表达式缓存
      */
     public static void clearCache() {
@@ -162,7 +158,7 @@ public class RegexUtils {
                 //noinspection MagicConstant
                 return Pattern.compile(regex, flags);
             });
-        } catch (ExecutionException e) {
+        } catch (ExecutionException | UncheckedExecutionException e) {
             // 处理可能的异常
             if (e.getCause() instanceof PatternSyntaxException) {
                 throw (PatternSyntaxException) e.getCause();

@@ -12,9 +12,11 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 使用Jackson将任何数据转换为String，便于日志打印
@@ -43,8 +45,16 @@ public class SafetyToString {
     private static final int BYTE_ARRAY_DISPLAY_HEAD = 128;
     private static final int BYTE_ARRAY_DISPLAY_TAIL = 128;
 
+    // 通用数组截断阈值和显示数量
+    private static final int MAX_ARRAY_SIZE = 30;
+    private static final int ARRAY_DISPLAY_HEAD = 10;
+    private static final int ARRAY_DISPLAY_TAIL = 10;
+
     // 添加最大嵌套深度限制
     private static final int MAX_NESTING_DEPTH = 10;
+    
+    // 最大输出长度限制（字符数）
+    private static final int MAX_TOTAL_OUTPUT_LENGTH = 8192;
 
     private static final ObjectMapper mapper = createObjectMapper();
 
@@ -68,6 +78,16 @@ public class SafetyToString {
         module.addSerializer(Collection.class, new CollectionLimiter());
         module.addSerializer(byte[].class, new ByteArrayLimiter());
         module.addSerializer(Map.class, new MapLimiter());
+        
+        // 注册通用数组序列化器
+        module.addSerializer(Object[].class, new ObjectArrayLimiter());
+        module.addSerializer(int[].class, new IntArrayLimiter());
+        module.addSerializer(long[].class, new LongArrayLimiter());
+        module.addSerializer(double[].class, new DoubleArrayLimiter());
+        module.addSerializer(float[].class, new FloatArrayLimiter());
+        module.addSerializer(boolean[].class, new BooleanArrayLimiter());
+        module.addSerializer(char[].class, new CharArrayLimiter());
+        module.addSerializer(short[].class, new ShortArrayLimiter());
 
         mapper.registerModule(module);
 
@@ -120,7 +140,42 @@ public class SafetyToString {
         }
 
         try {
-            return mapper.writeValueAsString(object);
+            String result = mapper.writeValueAsString(object);
+            // 控制最大输出长度
+            if (result.length() > MAX_TOTAL_OUTPUT_LENGTH) {
+                result = result.substring(0, MAX_TOTAL_OUTPUT_LENGTH) +
+                        "...[输出已截断，超出" + (result.length() - MAX_TOTAL_OUTPUT_LENGTH) + "字符]";
+            }
+            return result;
+        } catch (JsonProcessingException e) {
+            // 增强错误处理，加入对象类名
+            return "Error serializing object of type [" + object.getClass().getName() + "]: " + e.getMessage();
+        } catch (Exception e) {
+            // 添加通用异常处理
+            return "Unexpected error when serializing object: " + e.getMessage();
+        }
+    }
+
+    /**
+     * 将对象转换为字符串，同时指定最大输出长度
+     *
+     * @param object 任意对象
+     * @param maxLength 最大输出长度
+     * @return 字符串表示
+     */
+    public static String from(Object object, int maxLength) {
+        if (object == null) {
+            return "null";
+        }
+
+        try {
+            String result = mapper.writeValueAsString(object);
+            // 控制指定的最大输出长度
+            if (result.length() > maxLength) {
+                result = result.substring(0, maxLength) +
+                        "...[输出已截断，超出" + (result.length() - maxLength) + "字符]";
+            }
+            return result;
         } catch (JsonProcessingException e) {
             // 增强错误处理，加入对象类名
             return "Error serializing object of type [" + object.getClass().getName() + "]: " + e.getMessage();
@@ -304,6 +359,366 @@ public class SafetyToString {
             }
 
             gen.writeEndObject();
+        }
+    }
+    
+    /**
+     * Object[]数组限制序列化器
+     */
+    private static class ObjectArrayLimiter extends StdSerializer<Object[]> {
+        public ObjectArrayLimiter() {
+            super(Object[].class);
+        }
+
+        @Override
+        public void serialize(Object[] value, JsonGenerator gen, SerializerProvider provider)
+                throws IOException {
+            if (value == null) {
+                gen.writeNull();
+                return;
+            }
+
+            gen.writeStartArray();
+
+            if (value.length <= MAX_ARRAY_SIZE) {
+                // 数组大小在限制范围内，正常序列化
+                for (Object item : value) {
+                    provider.defaultSerializeValue(item, gen);
+                }
+            } else {
+                // 数组超出限制，只序列化头尾部分
+
+                // 写入前ARRAY_DISPLAY_HEAD项
+                for (int i = 0; i < ARRAY_DISPLAY_HEAD; i++) {
+                    provider.defaultSerializeValue(value[i], gen);
+                }
+
+                // 写入省略信息
+                int omitted = value.length - ARRAY_DISPLAY_HEAD - ARRAY_DISPLAY_TAIL;
+                gen.writeString("...(省略" + omitted + "项)...");
+
+                // 写入后ARRAY_DISPLAY_TAIL项
+                for (int i = value.length - ARRAY_DISPLAY_TAIL; i < value.length; i++) {
+                    provider.defaultSerializeValue(value[i], gen);
+                }
+            }
+
+            gen.writeEndArray();
+        }
+    }
+    
+    /**
+     * int[]数组限制序列化器
+     */
+    private static class IntArrayLimiter extends StdSerializer<int[]> {
+        public IntArrayLimiter() {
+            super(int[].class);
+        }
+
+        @Override
+        public void serialize(int[] value, JsonGenerator gen, SerializerProvider provider)
+                throws IOException {
+            if (value == null) {
+                gen.writeNull();
+                return;
+            }
+
+            gen.writeStartArray();
+
+            if (value.length <= MAX_ARRAY_SIZE) {
+                // 数组大小在限制范围内，正常序列化
+                for (int item : value) {
+                    gen.writeNumber(item);
+                }
+            } else {
+                // 数组超出限制，只序列化头尾部分
+
+                // 写入前ARRAY_DISPLAY_HEAD项
+                for (int i = 0; i < ARRAY_DISPLAY_HEAD; i++) {
+                    gen.writeNumber(value[i]);
+                }
+
+                // 写入省略信息
+                int omitted = value.length - ARRAY_DISPLAY_HEAD - ARRAY_DISPLAY_TAIL;
+                gen.writeString("...(省略" + omitted + "项)...");
+
+                // 写入后ARRAY_DISPLAY_TAIL项
+                for (int i = value.length - ARRAY_DISPLAY_TAIL; i < value.length; i++) {
+                    gen.writeNumber(value[i]);
+                }
+            }
+
+            gen.writeEndArray();
+        }
+    }
+    
+    /**
+     * long[]数组限制序列化器
+     */
+    private static class LongArrayLimiter extends StdSerializer<long[]> {
+        public LongArrayLimiter() {
+            super(long[].class);
+        }
+
+        @Override
+        public void serialize(long[] value, JsonGenerator gen, SerializerProvider provider)
+                throws IOException {
+            if (value == null) {
+                gen.writeNull();
+                return;
+            }
+
+            gen.writeStartArray();
+
+            if (value.length <= MAX_ARRAY_SIZE) {
+                // 数组大小在限制范围内，正常序列化
+                for (long item : value) {
+                    gen.writeNumber(item);
+                }
+            } else {
+                // 数组超出限制，只序列化头尾部分
+
+                // 写入前ARRAY_DISPLAY_HEAD项
+                for (int i = 0; i < ARRAY_DISPLAY_HEAD; i++) {
+                    gen.writeNumber(value[i]);
+                }
+
+                // 写入省略信息
+                int omitted = value.length - ARRAY_DISPLAY_HEAD - ARRAY_DISPLAY_TAIL;
+                gen.writeString("...(省略" + omitted + "项)...");
+
+                // 写入后ARRAY_DISPLAY_TAIL项
+                for (int i = value.length - ARRAY_DISPLAY_TAIL; i < value.length; i++) {
+                    gen.writeNumber(value[i]);
+                }
+            }
+
+            gen.writeEndArray();
+        }
+    }
+    
+    /**
+     * double[]数组限制序列化器
+     */
+    private static class DoubleArrayLimiter extends StdSerializer<double[]> {
+        public DoubleArrayLimiter() {
+            super(double[].class);
+        }
+
+        @Override
+        public void serialize(double[] value, JsonGenerator gen, SerializerProvider provider)
+                throws IOException {
+            if (value == null) {
+                gen.writeNull();
+                return;
+            }
+
+            gen.writeStartArray();
+
+            if (value.length <= MAX_ARRAY_SIZE) {
+                // 数组大小在限制范围内，正常序列化
+                for (double item : value) {
+                    gen.writeNumber(item);
+                }
+            } else {
+                // 数组超出限制，只序列化头尾部分
+
+                // 写入前ARRAY_DISPLAY_HEAD项
+                for (int i = 0; i < ARRAY_DISPLAY_HEAD; i++) {
+                    gen.writeNumber(value[i]);
+                }
+
+                // 写入省略信息
+                int omitted = value.length - ARRAY_DISPLAY_HEAD - ARRAY_DISPLAY_TAIL;
+                gen.writeString("...(省略" + omitted + "项)...");
+
+                // 写入后ARRAY_DISPLAY_TAIL项
+                for (int i = value.length - ARRAY_DISPLAY_TAIL; i < value.length; i++) {
+                    gen.writeNumber(value[i]);
+                }
+            }
+
+            gen.writeEndArray();
+        }
+    }
+    
+    /**
+     * float[]数组限制序列化器
+     */
+    private static class FloatArrayLimiter extends StdSerializer<float[]> {
+        public FloatArrayLimiter() {
+            super(float[].class);
+        }
+
+        @Override
+        public void serialize(float[] value, JsonGenerator gen, SerializerProvider provider)
+                throws IOException {
+            if (value == null) {
+                gen.writeNull();
+                return;
+            }
+
+            gen.writeStartArray();
+
+            if (value.length <= MAX_ARRAY_SIZE) {
+                // 数组大小在限制范围内，正常序列化
+                for (float item : value) {
+                    gen.writeNumber(item);
+                }
+            } else {
+                // 数组超出限制，只序列化头尾部分
+
+                // 写入前ARRAY_DISPLAY_HEAD项
+                for (int i = 0; i < ARRAY_DISPLAY_HEAD; i++) {
+                    gen.writeNumber(value[i]);
+                }
+
+                // 写入省略信息
+                int omitted = value.length - ARRAY_DISPLAY_HEAD - ARRAY_DISPLAY_TAIL;
+                gen.writeString("...(省略" + omitted + "项)...");
+
+                // 写入后ARRAY_DISPLAY_TAIL项
+                for (int i = value.length - ARRAY_DISPLAY_TAIL; i < value.length; i++) {
+                    gen.writeNumber(value[i]);
+                }
+            }
+
+            gen.writeEndArray();
+        }
+    }
+    
+    /**
+     * boolean[]数组限制序列化器
+     */
+    private static class BooleanArrayLimiter extends StdSerializer<boolean[]> {
+        public BooleanArrayLimiter() {
+            super(boolean[].class);
+        }
+
+        @Override
+        public void serialize(boolean[] value, JsonGenerator gen, SerializerProvider provider)
+                throws IOException {
+            if (value == null) {
+                gen.writeNull();
+                return;
+            }
+
+            gen.writeStartArray();
+
+            if (value.length <= MAX_ARRAY_SIZE) {
+                // 数组大小在限制范围内，正常序列化
+                for (boolean item : value) {
+                    gen.writeBoolean(item);
+                }
+            } else {
+                // 数组超出限制，只序列化头尾部分
+
+                // 写入前ARRAY_DISPLAY_HEAD项
+                for (int i = 0; i < ARRAY_DISPLAY_HEAD; i++) {
+                    gen.writeBoolean(value[i]);
+                }
+
+                // 写入省略信息
+                int omitted = value.length - ARRAY_DISPLAY_HEAD - ARRAY_DISPLAY_TAIL;
+                gen.writeString("...(省略" + omitted + "项)...");
+
+                // 写入后ARRAY_DISPLAY_TAIL项
+                for (int i = value.length - ARRAY_DISPLAY_TAIL; i < value.length; i++) {
+                    gen.writeBoolean(value[i]);
+                }
+            }
+
+            gen.writeEndArray();
+        }
+    }
+    
+    /**
+     * char[]数组限制序列化器
+     */
+    private static class CharArrayLimiter extends StdSerializer<char[]> {
+        public CharArrayLimiter() {
+            super(char[].class);
+        }
+
+        @Override
+        public void serialize(char[] value, JsonGenerator gen, SerializerProvider provider)
+                throws IOException {
+            if (value == null) {
+                gen.writeNull();
+                return;
+            }
+
+            gen.writeStartArray();
+
+            if (value.length <= MAX_ARRAY_SIZE) {
+                // 数组大小在限制范围内，正常序列化
+                for (char item : value) {
+                    gen.writeString(String.valueOf(item));
+                }
+            } else {
+                // 数组超出限制，只序列化头尾部分
+
+                // 写入前ARRAY_DISPLAY_HEAD项
+                for (int i = 0; i < ARRAY_DISPLAY_HEAD; i++) {
+                    gen.writeString(String.valueOf(value[i]));
+                }
+
+                // 写入省略信息
+                int omitted = value.length - ARRAY_DISPLAY_HEAD - ARRAY_DISPLAY_TAIL;
+                gen.writeString("...(省略" + omitted + "项)...");
+
+                // 写入后ARRAY_DISPLAY_TAIL项
+                for (int i = value.length - ARRAY_DISPLAY_TAIL; i < value.length; i++) {
+                    gen.writeString(String.valueOf(value[i]));
+                }
+            }
+
+            gen.writeEndArray();
+        }
+    }
+    
+    /**
+     * short[]数组限制序列化器
+     */
+    private static class ShortArrayLimiter extends StdSerializer<short[]> {
+        public ShortArrayLimiter() {
+            super(short[].class);
+        }
+
+        @Override
+        public void serialize(short[] value, JsonGenerator gen, SerializerProvider provider)
+                throws IOException {
+            if (value == null) {
+                gen.writeNull();
+                return;
+            }
+
+            gen.writeStartArray();
+
+            if (value.length <= MAX_ARRAY_SIZE) {
+                // 数组大小在限制范围内，正常序列化
+                for (short item : value) {
+                    gen.writeNumber(item);
+                }
+            } else {
+                // 数组超出限制，只序列化头尾部分
+
+                // 写入前ARRAY_DISPLAY_HEAD项
+                for (int i = 0; i < ARRAY_DISPLAY_HEAD; i++) {
+                    gen.writeNumber(value[i]);
+                }
+
+                // 写入省略信息
+                int omitted = value.length - ARRAY_DISPLAY_HEAD - ARRAY_DISPLAY_TAIL;
+                gen.writeString("...(省略" + omitted + "项)...");
+
+                // 写入后ARRAY_DISPLAY_TAIL项
+                for (int i = value.length - ARRAY_DISPLAY_TAIL; i < value.length; i++) {
+                    gen.writeNumber(value[i]);
+                }
+            }
+
+            gen.writeEndArray();
         }
     }
 } 

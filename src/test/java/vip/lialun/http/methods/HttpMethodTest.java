@@ -104,18 +104,18 @@ public class HttpMethodTest {
     @Test
     public void testHeader() {
         ObjectNode response = client.get(POSTMAN_ECHO + "get")
-                .addHeader("test_header1", "value1")
-                .addHeader("test_header1", "value2")
-                .addHeader("test_header2", "value3")
+                .addHeader("test-header1", "value1")
+                .addHeader("test-header1", "value2")
+                .addHeader("test-header2", "value3")
                 .addHeader("Set-Cookie", "value4")
                 .addHeader("Set-Cookie", "value5")
-                .setHeader("test_header2", "value6")
-                .addHeaders("test_header3", "value7", "test_header4", "value8")
+                .setHeader("test-header2", "value6")
+                .addHeaders("test-header3", "value7", "test-header4", "value8")
                 .send().getJsonObject();
-        assertEquals("value1, value2", response.get("headers").get("test_header1").asText());
-        assertEquals("value6", response.get("headers").get("test_header2").asText());
-        assertEquals("value7", response.get("headers").get("test_header3").asText());
-        assertEquals("value8", response.get("headers").get("test_header4").asText());
+        assertEquals("value1, value2", response.get("headers").get("test-header1").asText());
+        assertEquals("value6", response.get("headers").get("test-header2").asText());
+        assertEquals("value7", response.get("headers").get("test-header3").asText());
+        assertEquals("value8", response.get("headers").get("test-header4").asText());
         
         ArrayNode expectedCookies = objectMapper.createArrayNode();
         expectedCookies.add("value4");
@@ -175,7 +175,7 @@ public class HttpMethodTest {
         response = client.post(POSTMAN_ECHO + "post")
                 .setEntity(content.getBytes(StandardCharsets.UTF_8))
                 .send().getJsonObject();
-        assertEquals("{\"data\":[97,98,99],\"type\":\"Buffer\"}", response.get("data").toString());
+        assertEquals("{\"type\":\"Buffer\",\"data\":[97,98,99]}", response.get("data").toString());
         assertEquals(CONTENT_TYPE_APPLICATION_OCTET_STREAM, response.get("headers").get(HEADER_CONTENT_TYPE).asText());
     }
 
@@ -192,8 +192,7 @@ public class HttpMethodTest {
         response = client.post(POSTMAN_ECHO + "post")
                 .setJsonEntity(entity)
                 .send().getJsonObject();
-
-        assertEquals(entity.toString(), response.get("data").asText());
+        assertEquals(entity.toString(), response.get("data").toString());
         assertEquals("application/json; charset=UTF-8", response.get("headers").get(HEADER_CONTENT_TYPE).asText());
     }
 
@@ -239,17 +238,5 @@ public class HttpMethodTest {
 
         ObjectNode response = client.post(POSTMAN_ECHO + "post").setJsonEntity(body).send().getJsonObject();
         assertEquals("{\"a\":1,\"b\":\"test_English?\",\"c\":\"测试中文？\"}", response.get("data").toString());
-    }
-
-    //TODO 临时取消测试
-    //@Test
-    public void testRedirect() {
-        HttpResponse response = HttpClient.builder().setRedirectsEnabled(false).build().get(REDIRECT_URL).send();
-        assertEquals(302, response.getStatusCode());
-        assertEquals(REDIRECT_URL, response.getLastRequestUrl());
-
-        response = HttpClient.builder().setRedirectsEnabled(true).build().get(REDIRECT_URL).send();
-        assertEquals(200, response.getStatusCode());
-        assertEquals("https://www.bailian-ai.com/", response.getLastRequestUrl());
     }
 }

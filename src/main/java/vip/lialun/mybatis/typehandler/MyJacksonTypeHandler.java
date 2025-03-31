@@ -1,10 +1,10 @@
 package vip.lialun.mybatis.typehandler;
 
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
-import com.zhuliwa.utils.json.JacksonHelper;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.MappedJdbcTypes;
 import org.apache.ibatis.type.MappedTypes;
+import vip.lialun.json.JacksonHelper;
 
 import java.lang.reflect.Field;
 

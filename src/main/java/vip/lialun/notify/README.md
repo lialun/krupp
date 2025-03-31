@@ -98,6 +98,15 @@ email:
 一个包含基本功能的Java飞书消息发送库，支持发送富文本消息到飞书群组。
 
 ## 基本用法
+### 0. 引入依赖
+```xml
+<dependency>
+    <dependency>
+        <groupId>com.larksuite.oapi</groupId>
+        <artifactId>oapi-sdk</artifactId>
+        <version>${feishu.version}</version>
+    </dependency>
+```
 
 ### 1. 直接使用
 

@@ -5,6 +5,8 @@ import lombok.Setter;
 
 /**
  * EmailSender的配置属性类
+ *
+ * @author lialun
  */
 @Getter
 @Setter

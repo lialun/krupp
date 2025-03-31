@@ -2,7 +2,9 @@ package vip.lialun.string;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.SerializerProvider;
@@ -21,7 +23,7 @@ import java.util.Map;
  * @author lialun
  */
 @SuppressWarnings({"unused", "Duplicates", "WeakerAccess"})
-public class JacksonToString {
+public class SafetyToString {
     // 长字符串截断阈值和显示长度
     private static final int MAX_STRING_LENGTH = 512;
     private static final int STRING_DISPLAY_HEAD = 128;
@@ -41,6 +43,9 @@ public class JacksonToString {
     private static final int BYTE_ARRAY_DISPLAY_HEAD = 128;
     private static final int BYTE_ARRAY_DISPLAY_TAIL = 128;
 
+    // 添加最大嵌套深度限制
+    private static final int MAX_NESTING_DEPTH = 10;
+
     private static final ObjectMapper mapper = createObjectMapper();
 
     // 创建并配置ObjectMapper
@@ -54,14 +59,51 @@ public class JacksonToString {
         // 避免循环引用导致的栈溢出
         mapper.disable(SerializationFeature.FAIL_ON_SELF_REFERENCES);
 
+        // 处理大数字
+        mapper.enable(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN);
+
         // 注册自定义序列化器
         SimpleModule module = new SimpleModule();
         module.addSerializer(String.class, new StringLimiter());
         module.addSerializer(Collection.class, new CollectionLimiter());
         module.addSerializer(byte[].class, new ByteArrayLimiter());
         module.addSerializer(Map.class, new MapLimiter());
-        
+
         mapper.registerModule(module);
+
+        // 简化循环引用和深度处理，使用更兼容的方式
+        mapper.getSerializerProvider().setDefaultKeySerializer(new JsonSerializer<Object>() {
+            @Override
+            public void serialize(Object value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+                gen.writeFieldName(value != null ? value.toString() : "null");
+            }
+        });
+
+        // 设置最大深度的序列化器
+        mapper.getFactory().setCodec(new ObjectMapper() {
+            private final ThreadLocal<Integer> depth = ThreadLocal.withInitial(() -> 0);
+
+            @Override
+            public <T> T readValue(JsonParser p, Class<T> valueType) throws IOException {
+                return super.readValue(p, valueType);
+            }
+
+            @Override
+            public void writeValue(JsonGenerator gen, Object value) throws IOException {
+                Integer currentDepth = depth.get();
+                if (currentDepth > MAX_NESTING_DEPTH) {
+                    gen.writeString("[深度超过" + MAX_NESTING_DEPTH + "层，不再展开]");
+                    return;
+                }
+
+                try {
+                    depth.set(currentDepth + 1);
+                    super.writeValue(gen, value);
+                } finally {
+                    depth.set(currentDepth);
+                }
+            }
+        });
 
         return mapper;
     }
@@ -76,11 +118,15 @@ public class JacksonToString {
         if (object == null) {
             return "null";
         }
-        
+
         try {
             return mapper.writeValueAsString(object);
         } catch (JsonProcessingException e) {
-            return "Error serializing object: " + e.getMessage();
+            // 增强错误处理，加入对象类名
+            return "Error serializing object of type [" + object.getClass().getName() + "]: " + e.getMessage();
+        } catch (Exception e) {
+            // 添加通用异常处理
+            return "Unexpected error when serializing object: " + e.getMessage();
         }
     }
 
@@ -100,7 +146,7 @@ public class JacksonToString {
                 gen.writeNull();
                 return;
             }
-            
+
             if (value.length() <= MAX_STRING_LENGTH) {
                 gen.writeString(value);
             } else {
@@ -117,6 +163,7 @@ public class JacksonToString {
      * 集合限制序列化器
      * 超过MAX_COLLECTION_SIZE(30)的集合会显示前10和后10项，中间显示省略信息
      */
+    @SuppressWarnings("rawtypes")
     private static class CollectionLimiter extends StdSerializer<Collection> {
         public CollectionLimiter() {
             super(Collection.class);
@@ -131,7 +178,7 @@ public class JacksonToString {
             }
 
             gen.writeStartArray();
-            
+
             if (value.size() <= MAX_COLLECTION_SIZE) {
                 // 集合大小在限制范围内，正常序列化
                 for (Object item : value) {
@@ -140,27 +187,27 @@ public class JacksonToString {
             } else {
                 // 集合超出限制，只序列化头尾部分
                 Iterator<?> iterator = value.iterator();
-                
+
                 // 写入前COLLECTION_DISPLAY_HEAD项
                 for (int i = 0; i < COLLECTION_DISPLAY_HEAD && iterator.hasNext(); i++) {
                     provider.defaultSerializeValue(iterator.next(), gen);
                 }
-                
+
                 // 写入省略信息
                 int omitted = value.size() - COLLECTION_DISPLAY_HEAD - COLLECTION_DISPLAY_TAIL;
                 gen.writeString("...(省略" + omitted + "项)...");
-                
+
                 // 跳过中间项
                 for (int i = 0; i < omitted && iterator.hasNext(); i++) {
                     iterator.next();
                 }
-                
+
                 // 写入后COLLECTION_DISPLAY_TAIL项
                 for (int i = 0; i < COLLECTION_DISPLAY_TAIL && iterator.hasNext(); i++) {
                     provider.defaultSerializeValue(iterator.next(), gen);
                 }
             }
-            
+
             gen.writeEndArray();
         }
     }
@@ -183,7 +230,7 @@ public class JacksonToString {
             }
 
             gen.writeStartArray();
-            
+
             if (value.length <= MAX_BYTE_ARRAY_LENGTH) {
                 // 字节数组在限制范围内，正常序列化
                 for (byte b : value) {
@@ -191,22 +238,22 @@ public class JacksonToString {
                 }
             } else {
                 // 字节数组超出限制，只序列化头尾部分
-                
+
                 // 写入前BYTE_ARRAY_DISPLAY_HEAD字节
                 for (int i = 0; i < BYTE_ARRAY_DISPLAY_HEAD; i++) {
                     gen.writeNumber(value[i]);
                 }
-                
+
                 // 写入省略信息
                 int omitted = value.length - BYTE_ARRAY_DISPLAY_HEAD - BYTE_ARRAY_DISPLAY_TAIL;
                 gen.writeString("...(省略" + omitted + "字节)...");
-                
+
                 // 写入后BYTE_ARRAY_DISPLAY_TAIL字节
                 for (int i = value.length - BYTE_ARRAY_DISPLAY_TAIL; i < value.length; i++) {
                     gen.writeNumber(value[i]);
                 }
             }
-            
+
             gen.writeEndArray();
         }
     }
@@ -215,6 +262,7 @@ public class JacksonToString {
      * Map限制序列化器
      * 超过MAX_MAP_SIZE(30)的Map会显示MAP_DISPLAY_SIZE(20)项，并显示省略信息
      */
+    @SuppressWarnings("rawtypes")
     private static class MapLimiter extends StdSerializer<Map> {
         public MapLimiter() {
             super(Map.class);
@@ -229,7 +277,7 @@ public class JacksonToString {
             }
 
             gen.writeStartObject();
-            
+
             if (value.size() <= MAX_MAP_SIZE) {
                 // Map大小在限制范围内，正常序列化
                 for (Object key : value.keySet()) {
@@ -239,7 +287,7 @@ public class JacksonToString {
             } else {
                 // Map超出限制，只序列化一部分
                 Iterator<?> iterator = value.keySet().iterator();
-                
+
                 // 写入前MAP_DISPLAY_SIZE项
                 int count = 0;
                 while (iterator.hasNext() && count < MAP_DISPLAY_SIZE) {
@@ -248,13 +296,13 @@ public class JacksonToString {
                     provider.defaultSerializeValue(value.get(key), gen);
                     count++;
                 }
-                
+
                 // 写入省略信息
                 int omitted = value.size() - MAP_DISPLAY_SIZE;
                 gen.writeFieldName("__omitted__");
                 gen.writeString("(省略" + omitted + "项)...");
             }
-            
+
             gen.writeEndObject();
         }
     }

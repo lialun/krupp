@@ -7,13 +7,13 @@ import java.util.*;
 /**
  * JacksonToString的测试类
  */
-public class JacksonToStringTest {
+public class SafetyToStringTest {
 
     @Test
     public void testStringTruncation() {
         // 测试正常长度的字符串
         String shortString = "这是一个正常长度的字符串";
-        System.out.println("短字符串: " + JacksonToString.from(shortString));
+        System.out.println("短字符串: " + SafetyToString.from(shortString));
 
         // 测试超长字符串
         StringBuilder sb = new StringBuilder();
@@ -21,7 +21,7 @@ public class JacksonToStringTest {
             sb.append("这是第").append(i).append("个字符 ");
         }
         String longString = sb.toString();
-        System.out.println("长字符串: " + JacksonToString.from(longString));
+        System.out.println("长字符串: " + SafetyToString.from(longString));
     }
 
     @Test
@@ -31,14 +31,14 @@ public class JacksonToStringTest {
         for (int i = 0; i < 20; i++) {
             smallList.add("项目-" + i);
         }
-        System.out.println("小集合: " + JacksonToString.from(smallList));
+        System.out.println("小集合: " + SafetyToString.from(smallList));
 
         // 测试超大集合
         List<String> largeList = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             largeList.add("项目-" + i);
         }
-        System.out.println("大集合: " + JacksonToString.from(largeList));
+        System.out.println("大集合: " + SafetyToString.from(largeList));
     }
 
     @Test
@@ -48,14 +48,14 @@ public class JacksonToStringTest {
         for (int i = 0; i < smallArray.length; i++) {
             smallArray[i] = (byte) i;
         }
-        System.out.println("小字节数组: " + JacksonToString.from(smallArray));
+        System.out.println("小字节数组: " + SafetyToString.from(smallArray));
 
         // 测试超大字节数组
         byte[] largeArray = new byte[1000];
         for (int i = 0; i < largeArray.length; i++) {
             largeArray[i] = (byte) i;
         }
-        System.out.println("大字节数组: " + JacksonToString.from(largeArray));
+        System.out.println("大字节数组: " + SafetyToString.from(largeArray));
     }
 
     @Test
@@ -65,14 +65,14 @@ public class JacksonToStringTest {
         for (int i = 0; i < 20; i++) {
             smallMap.put("键-" + i, i);
         }
-        System.out.println("小Map: " + JacksonToString.from(smallMap));
+        System.out.println("小Map: " + SafetyToString.from(smallMap));
 
         // 测试超大Map
         Map<String, Integer> largeMap = new HashMap<>();
         for (int i = 0; i < 50; i++) {
             largeMap.put("键-" + i, i);
         }
-        System.out.println("大Map: " + JacksonToString.from(largeMap));
+        System.out.println("大Map: " + SafetyToString.from(largeMap));
     }
 
     @Test
@@ -110,7 +110,7 @@ public class JacksonToStringTest {
         }
         complexObject.setProperties(largeMap);
         
-        System.out.println("复杂对象: " + JacksonToString.from(complexObject));
+        System.out.println("复杂对象: " + SafetyToString.from(complexObject));
     }
 
     /**

@@ -12,7 +12,7 @@ import java.util.concurrent.*;
  */
 @SuppressWarnings({"WeakerAccess", "unused"})
 public class MultiThreadExecutor {
-    private ExecutorService executorService;
+    private final ExecutorService executorService;
     List<FutureTask> futures = new ArrayList<>();
     /**
      * 容器当前状态

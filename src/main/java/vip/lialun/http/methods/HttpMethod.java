@@ -1,6 +1,5 @@
 package vip.lialun.http.methods;
 
-import ai.bailian.http.*;
 import com.google.common.net.UrlEscapers;
 import org.apache.http.Header;
 import org.apache.http.client.config.RequestConfig;

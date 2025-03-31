@@ -1,7 +1,6 @@
 package vip.lialun.http.simple;
 
 import vip.lialun.http.HttpClient;
-import ai.bailian.http.methods.*;
 import vip.lialun.http.methods.*;
 import vip.lialun.logging.Log;
 import vip.lialun.logging.LogFactory;

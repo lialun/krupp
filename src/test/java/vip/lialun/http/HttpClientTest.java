@@ -1,7 +1,6 @@
 package vip.lialun.http;
 
 import vip.lialun.BaseTest;
-import ai.bailian.http.methods.*;
 import vip.lialun.http.methods.*;
 import vip.lialun.thread.MultiThreadExecutor;
 import org.junit.jupiter.api.Test;

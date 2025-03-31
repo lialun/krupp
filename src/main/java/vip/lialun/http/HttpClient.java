@@ -1,6 +1,5 @@
 package vip.lialun.http;
 
-import ai.bailian.http.methods.*;
 import vip.lialun.http.methods.*;
 import vip.lialun.thread.SimpleThreadFactory;
 import org.apache.http.client.CookieStore;
